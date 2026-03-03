@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 CONFIG_DIR = Path(__file__).parent
 CONFIG_FILE = CONFIG_DIR / "config.yaml"
 
-REQUIRED_ENV_VARS = ["API_NINJAS_KEY", "ANTHROPIC_API_KEY", "SMTP_PASSWORD"]
+REQUIRED_ENV_VARS = ["ANTHROPIC_API_KEY", "SMTP_PASSWORD"]
 
 
 def load_config() -> dict:
@@ -50,9 +50,9 @@ def load_config() -> dict:
         sys.exit(1)
 
     config["secrets"] = {
-        "api_ninjas_key": os.environ["API_NINJAS_KEY"],
         "anthropic_api_key": os.environ["ANTHROPIC_API_KEY"],
         "smtp_password": os.environ["SMTP_PASSWORD"],
+        "earningscall_api_key": os.environ.get("EARNINGSCALL_API_KEY", ""),
     }
 
     return config

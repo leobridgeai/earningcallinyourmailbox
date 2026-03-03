@@ -1,55 +1,28 @@
-"""API Ninjas client for earnings call transcripts.
+"""EarningsCall client for fetching earnings call transcripts.
 
-Uses the free API Ninjas Earnings Call Transcript API to fetch transcripts.
-Sign up for a free API key at https://api-ninjas.com/
+Uses the earningscall Python library (https://earningscall.biz/).
+Free tier: AAPL and MSFT. Sign up for a free API key for 5,000+ companies.
 """
 
-import json
 import logging
-import urllib.request
-import urllib.error
 from datetime import date
+
+import earningscall
+from earningscall import get_company
 
 logger = logging.getLogger(__name__)
 
-BASE_URL = "https://api.api-ninjas.com/v1"
+
+def configure(api_key: str | None = None) -> None:
+    """Set the EarningsCall API key if provided."""
+    if api_key:
+        earningscall.api_key = api_key
+        logger.info("EarningsCall API key configured")
+    else:
+        logger.warning("No EARNINGSCALL_API_KEY set — only AAPL and MSFT transcripts available")
 
 
-def _api_get(endpoint: str, params: dict, api_key: str) -> list | dict | None:
-    """Make a GET request to the API Ninjas API. Returns parsed JSON or None on error."""
-    query = "&".join(f"{k}={v}" for k, v in params.items())
-    url = f"{BASE_URL}/{endpoint}?{query}"
-
-    try:
-        req = urllib.request.Request(url, headers={
-            "X-Api-Key": api_key,
-            "User-Agent": "EarningsCallAgent/1.0",
-        })
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            raw = resp.read().decode()
-            logger.debug("API response for %s: %s", endpoint, raw[:500])
-            data = json.loads(raw)
-            if isinstance(data, dict) and "error" in data:
-                logger.error("API Ninjas error: %s", data["error"])
-                return None
-            return data
-    except urllib.error.HTTPError as e:
-        body = ""
-        try:
-            body = e.read().decode()
-        except Exception:
-            pass
-        if e.code == 404:
-            logger.debug("No data found for %s (404): %s", endpoint, body)
-            return None
-        logger.error("API Ninjas HTTP error %d for %s: %s — %s", e.code, endpoint, e.reason, body)
-        return None
-    except (urllib.error.URLError, TimeoutError) as e:
-        logger.error("API Ninjas request failed for %s: %s", endpoint, e)
-        return None
-
-
-def get_recent_earnings(api_key: str, watchlist: list[str], days_back: int = 7) -> list[dict]:
+def get_recent_earnings(watchlist: list[str], days_back: int = 7) -> list[dict]:
     """Build a list of recent quarter candidates to check for each watchlist symbol.
 
     Calculates the current and previous quarter and creates candidates for
@@ -89,32 +62,24 @@ def _recent_quarters(ref_date: date, count: int = 2) -> list[tuple[int, int]]:
     return quarters
 
 
-def get_transcript(api_key: str, symbol: str, quarter: int, year: int) -> str | None:
+def get_transcript(symbol: str, quarter: int, year: int) -> str | None:
     """Fetch an earnings call transcript for a specific symbol, quarter, and year.
 
     Returns the transcript text or None if unavailable.
     """
-    data = _api_get("earningscalltranscript", {
-        "ticker": symbol,
-        "quarter": quarter,
-        "year": year,
-    }, api_key)
-
-    if not data:
-        logger.warning("No transcript data for %s Q%d %d", symbol, quarter, year)
-        return None
-
-    # API Ninjas may return a single object or a list
-    if isinstance(data, list):
-        if len(data) == 0:
-            logger.warning("Empty transcript list for %s Q%d %d", symbol, quarter, year)
+    try:
+        company = get_company(symbol)
+        if company is None:
+            logger.warning("Company not found: %s", symbol)
             return None
-        data = data[0]
 
-    transcript = data.get("transcript", "")
-    if transcript:
-        logger.info("Fetched transcript for %s Q%d %d (%d chars)", symbol, quarter, year, len(transcript))
-        return transcript
+        transcript = company.get_transcript(year=year, quarter=quarter)
+        if transcript is None or not transcript.text:
+            logger.warning("No transcript for %s Q%d %d", symbol, quarter, year)
+            return None
 
-    logger.warning("Empty transcript for %s Q%d %d", symbol, quarter, year)
-    return None
+        logger.info("Fetched transcript for %s Q%d %d (%d chars)", symbol, quarter, year, len(transcript.text))
+        return transcript.text
+    except Exception as e:
+        logger.error("Error fetching transcript for %s Q%d %d: %s", symbol, quarter, year, e)
+        return None
