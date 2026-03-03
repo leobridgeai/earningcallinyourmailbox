@@ -1,0 +1,24 @@
+watchlist:
+  - AAPL
+  - MSFT
+  - GOOGL
+  - AMZN
+  - NVDA
+
+email:
+  smtp_host: smtp.gmail.com
+  smtp_port: 587
+  sender: you@gmail.com
+  recipient: you@gmail.com
+
+analysis:
+  model: claude-sonnet-4-20250514
+  prompt: |
+    Here is the earnings call transcript for {symbol} ({quarter} {year}).
+
+    Translate the corporate speak into plain English:
+    - What did management actually commit to vs what was vague deflection?
+    - Where did they dodge analyst questions or give non-answers?
+    - What forward guidance is genuinely new information vs repackaged old targets?
+    - What are they NOT talking about that they probably should be?
+    - If I could only remember 3 things from this call, what matters most for the stock over the next 12 months?
