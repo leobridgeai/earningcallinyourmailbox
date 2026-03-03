@@ -4,7 +4,7 @@ import json
 import logging
 import urllib.request
 import urllib.error
-from datetime import date, timedelta
+from datetime import date
 
 logger = logging.getLogger(__name__)
 
@@ -34,61 +34,45 @@ def _api_get(endpoint: str, params: dict) -> list | dict | None:
 
 
 def get_recent_earnings(api_key: str, watchlist: list[str], days_back: int = 7) -> list[dict]:
-    """Fetch recent earnings events for watchlist symbols.
+    """Build a list of recent quarter candidates to check for each watchlist symbol.
 
-    Returns list of dicts with keys: symbol, date, quarter, year.
-    Only includes symbols from the watchlist.
+    Instead of using the paid earning_calendar endpoint, we calculate the
+    current and previous quarter and try fetching transcripts directly.
+    Returns list of dicts with keys: symbol, quarter, year.
     """
     today = date.today()
-    start = today - timedelta(days=days_back)
+    candidates = _recent_quarters(today, count=2)
 
-    data = _api_get("earning_calendar", {
-        "from": start.isoformat(),
-        "to": today.isoformat(),
-        "apikey": api_key,
-    })
-
-    if not data:
-        return []
-
-    watchlist_upper = {s.upper() for s in watchlist}
     results = []
-
-    for entry in data:
-        symbol = entry.get("symbol", "").upper()
-        if symbol not in watchlist_upper:
-            continue
-
-        earning_date = entry.get("date", "")
-        # Determine fiscal quarter and year from the date
-        fiscal_year = entry.get("fiscalDateEnding", earning_date)[:4] if entry.get("fiscalDateEnding") else earning_date[:4]
-
-        # FMP earnings calendar includes quarter info in some responses
-        # We'll derive quarter from the fiscal date ending month
-        quarter = _estimate_quarter(entry.get("fiscalDateEnding", earning_date))
-
-        if fiscal_year and quarter:
+    for symbol in watchlist:
+        for quarter, year in candidates:
             results.append({
-                "symbol": symbol,
-                "date": earning_date,
+                "symbol": symbol.upper(),
+                "date": today.isoformat(),
                 "quarter": quarter,
-                "year": int(fiscal_year),
+                "year": year,
             })
 
-    logger.info("Found %d earnings events for watchlist (last %d days)", len(results), days_back)
+    logger.info("Will check %d symbol/quarter combinations", len(results))
     return results
 
 
-def _estimate_quarter(date_str: str) -> int | None:
-    """Estimate fiscal quarter from a date string (YYYY-MM-DD)."""
-    if not date_str or len(date_str) < 7:
-        return None
-    try:
-        month = int(date_str[5:7])
-    except ValueError:
-        return None
-    # Q1=Jan-Mar, Q2=Apr-Jun, Q3=Jul-Sep, Q4=Oct-Dec
-    return (month - 1) // 3 + 1
+def _recent_quarters(ref_date: date, count: int = 2) -> list[tuple[int, int]]:
+    """Return the most recent `count` fiscal quarters as (quarter, year) tuples."""
+    month = ref_date.month
+    current_q = (month - 1) // 3 + 1
+    year = ref_date.year
+
+    quarters = []
+    q, y = current_q, year
+    for _ in range(count):
+        quarters.append((q, y))
+        q -= 1
+        if q == 0:
+            q = 4
+            y -= 1
+    return quarters
+
 
 
 def get_transcript(api_key: str, symbol: str, quarter: int, year: int) -> str | None:

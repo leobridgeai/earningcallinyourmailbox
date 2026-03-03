@@ -52,7 +52,7 @@ def main() -> int:
     earnings = get_recent_earnings(secrets["fmp_api_key"], watchlist, days_back=args.days)
 
     if not earnings:
-        logger.info("No recent earnings found for watchlist symbols")
+        logger.info("No symbols to check")
         return 0
 
     # Filter to only new (unprocessed) earnings
@@ -79,11 +79,10 @@ def main() -> int:
 
         logger.info("Processing %s Q%d %d...", symbol, quarter, year)
 
-        # Fetch transcript
+        # Fetch transcript (None means no transcript exists for this quarter yet)
         transcript = get_transcript(secrets["fmp_api_key"], symbol, quarter, year)
         if not transcript:
-            logger.warning("No transcript available for %s Q%d %d, will retry next run", symbol, quarter, year)
-            errors += 1
+            logger.info("No transcript for %s Q%d %d — skipping", symbol, quarter, year)
             continue
 
         # Analyze with Claude
