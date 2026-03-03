@@ -14,7 +14,7 @@ import argparse
 import logging
 import sys
 
-from config import load_config
+from config import load_config, load_watchlist
 from fmp_client import get_recent_earnings, get_transcript
 from analyzer import analyze_transcript
 from emailer import send_email
@@ -37,7 +37,7 @@ def main() -> int:
     # Load configuration
     config = load_config()
     secrets = config["secrets"]
-    watchlist = config["watchlist"]
+    watchlist = load_watchlist(config)
     email_config = config["email"]
     analysis_config = config["analysis"]
 

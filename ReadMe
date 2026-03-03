@@ -4,11 +4,12 @@ Automated earnings call analysis delivered to your inbox. Monitors your stock wa
 
 ## How It Works
 
-1. Checks the Financial Modeling Prep earnings calendar for your watchlist stocks
-2. Fetches new earnings call transcripts
-3. Sends each transcript to Claude with your custom analysis prompt
-4. Emails you a clean, formatted analysis
-5. Tracks what's been processed so you never get duplicates
+1. Pulls your watchlist from a Google Sheet you can edit anytime
+2. Checks the Financial Modeling Prep earnings calendar for those stocks
+3. Fetches new earnings call transcripts
+4. Sends each transcript to Claude with your custom analysis prompt
+5. Emails you a clean, formatted analysis
+6. Tracks what's been processed so you never get duplicates
 
 ## Setup
 
@@ -33,15 +34,27 @@ cp .env.example .env
 # Edit .env with your actual keys
 ```
 
-### 4. Configure your watchlist and settings
+### 4. Set up your watchlist (Google Sheets)
+
+1. Create a new Google Sheet
+2. Put your ticker symbols in **column A** — one per row (e.g. AAPL, MSFT, GOOGL)
+3. Go to **File → Share → Publish to web**
+4. Select **Comma-separated values (.csv)** from the dropdown, then click **Publish**
+5. Copy the published URL
+6. Paste it into `config.yaml` under `watchlist.sheet_url`
+
+Now you can add or remove stocks from your sheet anytime — the script picks up changes on every run. No need to touch any code.
+
+### 5. Configure email and prompt
 
 Edit `config.yaml`:
 
 ```yaml
 watchlist:
-  - AAPL
-  - MSFT
-  - GOOGL
+  sheet_url: "https://docs.google.com/spreadsheets/d/e/YOUR_SHEET_ID/pub?output=csv"
+  fallback:
+    - AAPL
+    - MSFT
 
 email:
   smtp_host: smtp.gmail.com
@@ -55,7 +68,9 @@ analysis:
     Your custom analysis prompt here...
 ```
 
-### 5. Run it
+The `fallback` list is only used if the Google Sheet is temporarily unreachable.
+
+### 6. Run it
 
 ```bash
 # Load your .env and run
@@ -68,7 +83,7 @@ export $(cat .env | xargs) && python main.py --dry-run
 export $(cat .env | xargs) && python main.py --days 14
 ```
 
-### 6. Schedule it (optional)
+### 7. Schedule it (optional)
 
 Run daily at 9am via cron:
 
@@ -82,12 +97,12 @@ crontab -e
 
 ```
 main.py           — Entry point, orchestrates the pipeline
-config.py         — Loads config from .env + config.yaml
+config.py         — Loads config from .env + config.yaml + Google Sheet
 fmp_client.py     — Financial Modeling Prep API client
 analyzer.py       — Claude-powered transcript analysis
 emailer.py        — SMTP email sender
 state.py          — Tracks processed earnings (avoids duplicates)
-config.yaml       — Your watchlist, email settings, and analysis prompt
+config.yaml       — Your sheet URL, email settings, and analysis prompt
 .env              — Your API keys and SMTP password (git-ignored)
 processed.json    — Auto-generated state file (git-ignored)
 ```

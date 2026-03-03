@@ -1,10 +1,17 @@
 """Load configuration from .env environment variables and config.yaml."""
 
+import csv
+import io
+import logging
 import os
 import sys
+import urllib.request
+import urllib.error
 from pathlib import Path
 
 import yaml
+
+logger = logging.getLogger(__name__)
 
 CONFIG_DIR = Path(__file__).parent
 CONFIG_FILE = CONFIG_DIR / "config.yaml"
@@ -45,3 +52,47 @@ def load_config() -> dict:
     }
 
     return config
+
+
+def load_watchlist(config: dict) -> list[str]:
+    """Load the stock watchlist from a published Google Sheet CSV.
+
+    Falls back to config.yaml fallback list if the sheet is unreachable.
+    The Google Sheet should have ticker symbols in column A.
+    """
+    watchlist_config = config["watchlist"]
+    sheet_url = watchlist_config.get("sheet_url", "")
+    fallback = watchlist_config.get("fallback", [])
+
+    if not sheet_url:
+        logger.warning("No sheet_url configured, using fallback watchlist")
+        return fallback
+
+    try:
+        req = urllib.request.Request(sheet_url, headers={"User-Agent": "EarningsCallAgent/1.0"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            text = resp.read().decode("utf-8")
+    except (urllib.error.URLError, TimeoutError) as e:
+        logger.warning("Failed to fetch watchlist sheet: %s — using fallback", e)
+        return fallback
+
+    # Parse CSV, extract column A (ticker symbols)
+    tickers = []
+    reader = csv.reader(io.StringIO(text))
+    for row in reader:
+        if not row:
+            continue
+        symbol = row[0].strip().upper()
+        # Skip header rows and empty cells
+        if not symbol or symbol in ("TICKER", "SYMBOL", "STOCK"):
+            continue
+        # Basic validation: tickers are 1-5 uppercase letters
+        if symbol.isalpha() and 1 <= len(symbol) <= 5:
+            tickers.append(symbol)
+
+    if not tickers:
+        logger.warning("No valid tickers found in sheet, using fallback watchlist")
+        return fallback
+
+    logger.info("Loaded %d tickers from Google Sheet: %s", len(tickers), ", ".join(tickers))
+    return tickers

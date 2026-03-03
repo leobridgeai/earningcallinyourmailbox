@@ -1,9 +1,11 @@
 watchlist:
-  - AAPL
-  - MSFT
-  - GOOGL
-  - AMZN
-  - NVDA
+  # Google Sheet published as CSV — edit the sheet anytime, script picks up changes automatically
+  # To set up: create a Google Sheet with tickers in column A, then File → Share → Publish to web → CSV
+  sheet_url: "https://docs.google.com/spreadsheets/d/e/YOUR_SHEET_ID/pub?output=csv"
+  # Fallback tickers used if the sheet is unreachable
+  fallback:
+    - AAPL
+    - MSFT
 
 email:
   smtp_host: smtp.gmail.com
