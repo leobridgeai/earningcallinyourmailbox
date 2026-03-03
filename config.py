@@ -58,11 +58,14 @@ def load_config() -> dict:
     return config
 
 
-def load_watchlist(config: dict) -> list[str]:
+def load_watchlist(config: dict) -> tuple[list[str], dict[str, str]]:
     """Load the stock watchlist from a published Google Sheet CSV.
 
     Falls back to config.yaml fallback list if the sheet is unreachable.
-    The Google Sheet should have ticker symbols in column A.
+    The Google Sheet should have ticker symbols in column A and optional
+    transcript URLs in column B.
+
+    Returns (tickers, transcript_urls) where transcript_urls maps ticker -> URL.
     """
     watchlist_config = config["watchlist"]
     sheet_url = watchlist_config.get("sheet_url", "")
@@ -70,7 +73,7 @@ def load_watchlist(config: dict) -> list[str]:
 
     if not sheet_url:
         logger.warning("No sheet_url configured, using fallback watchlist")
-        return fallback
+        return fallback, {}
 
     try:
         req = urllib.request.Request(sheet_url, headers={"User-Agent": "EarningsCallAgent/1.0"})
@@ -78,10 +81,11 @@ def load_watchlist(config: dict) -> list[str]:
             text = resp.read().decode("utf-8")
     except (urllib.error.URLError, TimeoutError) as e:
         logger.warning("Failed to fetch watchlist sheet: %s — using fallback", e)
-        return fallback
+        return fallback, {}
 
-    # Parse CSV, extract column A (ticker symbols)
+    # Parse CSV: column A = ticker symbols, column B (optional) = transcript URL
     tickers = []
+    transcript_urls = {}
     reader = csv.reader(io.StringIO(text))
     for row in reader:
         if not row:
@@ -93,10 +97,18 @@ def load_watchlist(config: dict) -> list[str]:
         # Basic validation: tickers are 1-5 uppercase letters
         if symbol.isalpha() and 1 <= len(symbol) <= 5:
             tickers.append(symbol)
+            # Check for optional transcript URL in column B
+            if len(row) > 1:
+                url = row[1].strip()
+                if url.startswith("http://") or url.startswith("https://"):
+                    transcript_urls[symbol] = url
+                    logger.info("Transcript URL provided for %s", symbol)
 
     if not tickers:
         logger.warning("No valid tickers found in sheet, using fallback watchlist")
-        return fallback
+        return fallback, {}
 
     logger.info("Loaded %d tickers from Google Sheet: %s", len(tickers), ", ".join(tickers))
-    return tickers
+    if transcript_urls:
+        logger.info("%d tickers have manual transcript URLs", len(transcript_urls))
+    return tickers, transcript_urls

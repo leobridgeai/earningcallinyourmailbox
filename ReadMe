@@ -5,11 +5,10 @@ Automated earnings call analysis delivered to your inbox. Monitors your stock wa
 ## How It Works
 
 1. Pulls your watchlist from a Google Sheet you can edit anytime
-2. Checks the Financial Modeling Prep earnings calendar for those stocks
-3. Fetches new earnings call transcripts
-4. Sends each transcript to Claude with your custom analysis prompt
-5. Emails you a clean, formatted analysis
-6. Tracks what's been processed so you never get duplicates
+2. Fetches earnings call transcripts — from URLs you paste in the sheet (free) or via API
+3. Sends each transcript to Claude with your custom analysis prompt
+4. Emails you a clean, formatted analysis
+5. Tracks what's been processed so you never get duplicates
 
 ## Setup
 
@@ -23,9 +22,9 @@ pip install -r requirements.txt
 
 ### 2. Get your API keys
 
-- **Financial Modeling Prep**: Sign up at [financialmodelingprep.com](https://financialmodelingprep.com/) (free tier available)
 - **Anthropic**: Get an API key at [console.anthropic.com](https://console.anthropic.com/)
 - **Gmail App Password**: Generate one at [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) (requires 2FA enabled)
+- **EarningsCall** (optional): Sign up at [earningscall.biz](https://earningscall.biz/) for API-based transcript access. Not needed if you use the URL method below.
 
 ### 3. Configure secrets
 
@@ -38,12 +37,20 @@ cp .env.example .env
 
 1. Create a new Google Sheet
 2. Put your ticker symbols in **column A** — one per row (e.g. AAPL, MSFT, GOOGL)
-3. Go to **File → Share → Publish to web**
-4. Select **Comma-separated values (.csv)** from the dropdown, then click **Publish**
-5. Copy the published URL
-6. Paste it into `config.yaml` under `watchlist.sheet_url`
+3. **(Optional, free method)** Put a transcript URL in **column B** for any ticker
+   - Works with Motley Fool transcript articles, company Investor Relations pages, or any page with the full transcript text
+   - Example: `AAPL` | `https://www.fool.com/earnings/call-transcripts/2025/01/30/apple-aapl-q1-2025-earnings-call-transcript/`
+4. Go to **File → Share → Publish to web**
+5. Select **Comma-separated values (.csv)** from the dropdown, then click **Publish**
+6. Copy the published URL
+7. Paste it into `config.yaml` under `watchlist.sheet_url`
 
 Now you can add or remove stocks from your sheet anytime — the script picks up changes on every run. No need to touch any code.
+
+**Transcript sources (priority order):**
+1. **URL in column B** (free) — you paste the link, script fetches and extracts the text
+2. **EarningsCall API** — if `EARNINGSCALL_API_KEY` is set in `.env`
+3. **Skip** — logs a helpful message telling you what to do
 
 ### 5. Configure email and prompt
 
@@ -96,13 +103,14 @@ crontab -e
 ## Project Structure
 
 ```
-main.py           — Entry point, orchestrates the pipeline
-config.py         — Loads config from .env + config.yaml + Google Sheet
-fmp_client.py     — Financial Modeling Prep API client
-analyzer.py       — Claude-powered transcript analysis
-emailer.py        — SMTP email sender
-state.py          — Tracks processed earnings (avoids duplicates)
-config.yaml       — Your sheet URL, email settings, and analysis prompt
-.env              — Your API keys and SMTP password (git-ignored)
-processed.json    — Auto-generated state file (git-ignored)
+main.py              — Entry point, orchestrates the pipeline
+config.py            — Loads config from .env + config.yaml + Google Sheet
+transcript_client.py — EarningsCall API client for transcript fetching
+web_transcript.py    — Fetches transcripts from user-provided URLs (free method)
+analyzer.py          — Claude-powered transcript analysis
+emailer.py           — SMTP email sender
+state.py             — Tracks processed earnings (avoids duplicates)
+config.yaml          — Your sheet URL, email settings, and analysis prompt
+.env                 — Your API keys and SMTP password (git-ignored)
+processed.json       — Auto-generated state file (git-ignored)
 ```

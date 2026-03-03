@@ -1,6 +1,8 @@
 watchlist:
   # Google Sheet published as CSV — edit the sheet anytime, script picks up changes automatically
   # To set up: create a Google Sheet with tickers in column A, then File → Share → Publish to web → CSV
+  # Optional: add a transcript URL in column B to use a free web-based transcript source
+  # (e.g. Motley Fool article, company IR page, or any page with the full transcript text)
   sheet_url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vT47PlQZtAdHojfVwFsRu0gXN17_ayAD8VHRjGVGqBzcmEztIIZJD580AgMqExyGNsPFXEhCVak45_E/pub?gid=0&single=true&output=csv"
   # Fallback tickers used if the sheet is unreachable
   fallback:

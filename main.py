@@ -16,6 +16,7 @@ import sys
 
 from config import load_config, load_watchlist
 from transcript_client import configure as configure_transcript_client, get_recent_earnings, get_transcript
+from web_transcript import fetch_transcript_from_url
 from analyzer import analyze_transcript
 from emailer import send_email
 from state import load_processed, save_processed, make_key
@@ -41,11 +42,12 @@ def main() -> int:
     # Load configuration
     config = load_config()
     secrets = config["secrets"]
-    watchlist = load_watchlist(config)
+    watchlist, transcript_urls = load_watchlist(config)
     email_config = config["email"]
     analysis_config = config["analysis"]
 
-    # Configure transcript client
+    # Configure transcript client (API-based, if key is available)
+    has_api = bool(secrets.get("earningscall_api_key"))
     configure_transcript_client(secrets.get("earningscall_api_key"))
 
     logger.info("Watchlist: %s", ", ".join(watchlist))
@@ -86,10 +88,30 @@ def main() -> int:
 
         logger.info("Processing %s Q%d %d...", symbol, quarter, year)
 
-        # Fetch transcript (None means no transcript exists for this quarter yet)
-        transcript = get_transcript(symbol, quarter, year)
+        # Fetch transcript — try sources in order:
+        # 1. User-provided URL from Google Sheet (free, user-controlled)
+        # 2. EarningsCall API (if API key is configured)
+        # 3. Skip if no source available
+        transcript = None
+
+        if symbol in transcript_urls:
+            logger.info("Trying user-provided transcript URL for %s", symbol)
+            transcript = fetch_transcript_from_url(transcript_urls[symbol])
+            if transcript:
+                logger.info("Got transcript from URL for %s (%d chars)", symbol, len(transcript))
+
+        if not transcript and has_api:
+            transcript = get_transcript(symbol, quarter, year)
+
         if not transcript:
-            logger.info("No transcript for %s Q%d %d — skipping", symbol, quarter, year)
+            if not has_api and symbol not in transcript_urls:
+                logger.info(
+                    "No transcript for %s — add a TRANSCRIPT_URL in your Google Sheet "
+                    "or configure EARNINGSCALL_API_KEY",
+                    symbol,
+                )
+            else:
+                logger.info("No transcript for %s Q%d %d — skipping", symbol, quarter, year)
             continue
 
         # Analyze with Claude
