@@ -10,6 +10,7 @@ import urllib.error
 from pathlib import Path
 
 import yaml
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,9 @@ def load_config() -> dict:
 
     Returns a dict with keys: watchlist, email, analysis, and secrets.
     """
+    # Load .env file (works on Windows, Mac, and Linux)
+    load_dotenv(CONFIG_DIR / ".env")
+
     # Load config.yaml
     if not CONFIG_FILE.exists():
         print(f"Error: {CONFIG_FILE} not found. Copy config.yaml.example and edit it.", file=sys.stderr)
