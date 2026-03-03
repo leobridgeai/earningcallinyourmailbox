@@ -15,7 +15,7 @@ import logging
 import sys
 
 from config import load_config, load_watchlist
-from fmp_client import get_recent_earnings, get_transcript
+from transcript_client import get_recent_earnings, get_transcript
 from analyzer import analyze_transcript
 from emailer import send_email
 from state import load_processed, save_processed, make_key
@@ -49,7 +49,7 @@ def main() -> int:
     logger.info("Already processed: %d earnings calls", len(processed))
 
     # Check for recent earnings
-    earnings = get_recent_earnings(secrets["fmp_api_key"], watchlist, days_back=args.days)
+    earnings = get_recent_earnings(secrets["api_ninjas_key"], watchlist, days_back=args.days)
 
     if not earnings:
         logger.info("No symbols to check")
@@ -80,7 +80,7 @@ def main() -> int:
         logger.info("Processing %s Q%d %d...", symbol, quarter, year)
 
         # Fetch transcript (None means no transcript exists for this quarter yet)
-        transcript = get_transcript(secrets["fmp_api_key"], symbol, quarter, year)
+        transcript = get_transcript(secrets["api_ninjas_key"], symbol, quarter, year)
         if not transcript:
             logger.info("No transcript for %s Q%d %d — skipping", symbol, quarter, year)
             continue
