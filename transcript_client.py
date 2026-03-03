@@ -26,16 +26,23 @@ def _api_get(endpoint: str, params: dict, api_key: str) -> list | dict | None:
             "User-Agent": "EarningsCallAgent/1.0",
         })
         with urllib.request.urlopen(req, timeout=30) as resp:
-            data = json.loads(resp.read().decode())
+            raw = resp.read().decode()
+            logger.debug("API response for %s: %s", endpoint, raw[:500])
+            data = json.loads(raw)
             if isinstance(data, dict) and "error" in data:
                 logger.error("API Ninjas error: %s", data["error"])
                 return None
             return data
     except urllib.error.HTTPError as e:
+        body = ""
+        try:
+            body = e.read().decode()
+        except Exception:
+            pass
         if e.code == 404:
-            logger.debug("No data found for %s (404)", endpoint)
+            logger.debug("No data found for %s (404): %s", endpoint, body)
             return None
-        logger.error("API Ninjas HTTP error %d for %s: %s", e.code, endpoint, e.reason)
+        logger.error("API Ninjas HTTP error %d for %s: %s — %s", e.code, endpoint, e.reason, body)
         return None
     except (urllib.error.URLError, TimeoutError) as e:
         logger.error("API Ninjas request failed for %s: %s", endpoint, e)

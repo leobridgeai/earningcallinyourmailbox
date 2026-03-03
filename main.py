@@ -32,7 +32,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Earnings Call In Your Mailbox")
     parser.add_argument("--dry-run", action="store_true", help="Analyze but don't send emails (print to stdout)")
     parser.add_argument("--days", type=int, default=7, help="Number of days to look back for earnings (default: 7)")
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging")
     args = parser.parse_args()
+
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
 
     # Load configuration
     config = load_config()
